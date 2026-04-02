@@ -50,7 +50,15 @@ def load_obs_mut(obs_file, mutrates_file, window_size):
 
     for idx, (obs, m) in enumerate(zip(obs_arr, mutrates_arr)):
         if obs > 0 and m == 0:
-            print(f"Warning: observation={obs} but mutrate=0 at index={idx}")
+            # find which contig this index belongs to
+            for contig, c_offset in contig_offsets.items():
+                if c_offset <= idx < c_offset + contig_window_counts[contig]:
+                    local_idx = idx - c_offset
+                    print(f"Warning: observation={obs} but mutrate=0 at index={idx} "
+                        f"| contig={contig} local_idx={local_idx} "
+                        f"| contig_windows={contig_window_counts[contig]} "
+                        f"| approx_pos={local_idx * window_size}")
+                    break
 
     return obs_arr, mutrates_arr
 
