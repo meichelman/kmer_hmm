@@ -24,7 +24,7 @@ def decode(obs_file, mutrates_file, param_file, out_file, window_size):
     obs, mutrates = load_obs_mut(obs_file, mutrates_file, window_size)
 
     print('-' * 40)
-    print(f'> number of windows: {len(obs)}. Number of kmers = {sum(obs)}')
+    print(f'> number of windows: {len(obs)}. Number of kmers = {obs.astype(np.int64).sum()}')
     print('> output is', out_file)
     print('> Window size is', window_size, 'bp')
     print('> Decode with posterior decoding')
@@ -74,7 +74,7 @@ def main():
     elif mode == 'decode':
         # python3 main.py decode obs.bed mutrates.txt trained.json
         
-        if len(args) < 5:
+        if len(args) < 6:
             sys.exit('\n\nMust input:\n\tParameters\n\tObservations\n\tMutation rate\n\tOutput\n\n')
         
         obs, mutrates, params, window_size = args[2], args[3], args[4], int(args[5])
