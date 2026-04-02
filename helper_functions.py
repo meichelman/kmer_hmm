@@ -50,6 +50,25 @@ def load_obs_mut(obs_file, mutrates_file, window_size):
             obs_idx_end   = min(obs_idx_end, contig_max_idx)  # cap at contig boundary, not global
 
             mutrates_arr[obs_idx_start:obs_idx_end] = mutrate
+    
+    with open(mutrates_file) as infile:
+        for line in infile:
+            if line.startswith('contig'):
+                continue
+            contig, start, end, mutrate = line.strip().split('\t')
+            start, end, mutrate = int(start), int(end), float(mutrate)
+            
+            if contig not in contig_offsets:
+                continue
+
+            contig_offset = contig_offsets[contig]
+            contig_max_windows = contig_window_counts[contig]
+
+            if contig == 'haplotype1-0000041':  # small contig with only 61 windows
+                print(f"mutrate entry: start={start} end={end} mutrate={mutrate}")
+                print(f"  contig_offset={contig_offset} contig_windows={contig_max_windows}")
+                print(f"  obs_idx_start={contig_offset + start // window_size}")
+                print(f"  obs_idx_end={contig_offset + end // window_size}")
 
     for idx, (obs, m) in enumerate(zip(obs_arr, mutrates_arr)):
         if obs > 0 and m == 0:
