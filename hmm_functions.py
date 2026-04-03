@@ -72,17 +72,35 @@ def poisson_probability_underflow_safe(n, lam):
 
 
 @njit
-def Emission_probs_poisson(emissions, observations, mutrates):
+def NB_probability_underflow_safe(k, r, p):
+    # naive:   comb(n + r - 1, n) * (1 - p)**r * p**n
+    
+    # iterative, to keep the components from getting too large or small:
+    p_n = 1.0
+    for i in range(k):
+        p_n *= (r + i) * (1 - p) / (i + 1)
+
+    for j in range(r):
+        p_n *= p
+
+    return p_n
+
+
+@njit
+def Emission_probs(emissions, observations, mutrates, window_size):
     n = len(observations)
     n_states = len(emissions)          
     
     probabilities = np.zeros( (n, n_states) ) 
     for state in range(n_states): 
         for index in range(n):
-            lam = emissions[state] * mutrates[index]
-            probabilities[index,state] = poisson_probability_underflow_safe(observations[index], lam)
+            # lam = emissions[state] * mutrates[index]
+            # probabilities[index,state] = poisson_probability_underflow_safe(observations[index], lam)
+            p = emissions[state] * mutrates[index]
+            k = window_size - 1 - observations[index]
+            probabilities[index,state] = NB_probability_underflow_safe(k, observations[index], p)
             
-    probabilities = np.where(probabilities < 1e-30, 1e-30, probabilities)
+    # probabilities = np.where(probabilities < 1e-30, 1e-30, probabilities)
     return probabilities
 
 
@@ -127,9 +145,9 @@ def backward(emissions, transitions, scales):
     return beta
 
 
-def GetProbability(hmm_parameters, obs, mutrates):
+def GetProbability(hmm_parameters, obs, mutrates, window_size):
 
-    emissions = Emission_probs_poisson(hmm_parameters.emissions, obs, mutrates)
+    emissions = Emission_probs(hmm_parameters.emissions, obs, mutrates, window_size)
     _, scales = forward(emissions, hmm_parameters.transitions, hmm_parameters.starting_probabilities)
     forward_probility_of_obs = np.sum(np.log(scales))
 
@@ -209,14 +227,14 @@ def logoutput(hmm_parameters, loglikelihood, iteration):
     print(iteration, round(loglikelihood, 4), print_starting_probabilities, print_emissions, print_transitions, sep = '\t')
 
 
-def TrainBaumWelsch(hmm_parameters, obs, mutrates):
+def TrainBaumWelsch(hmm_parameters, obs, mutrates, window_size):
     """
     Trains the model once, using the forward-backward algorithm. 
     """
 
     n_states = len(hmm_parameters.starting_probabilities)
 
-    emissions = Emission_probs_poisson(hmm_parameters.emissions, obs, mutrates)
+    emissions = Emission_probs(hmm_parameters.emissions, obs, mutrates, window_size)
     forward_probs, scales = forward(emissions, hmm_parameters.transitions, hmm_parameters.starting_probabilities)
     backward_probs = backward(emissions, hmm_parameters.transitions, scales)
 
@@ -242,16 +260,16 @@ def TrainBaumWelsch(hmm_parameters, obs, mutrates):
     return HMMParam(hmm_parameters.state_names,new_starting_probabilities, new_transitions_matrix, new_emissions_matrix)
 
 
-def TrainModel(obs, mutrates, hmm_parameters, epsilon = 1e-3, maxiterations = 1000):
+def TrainModel(obs, mutrates, hmm_parameters, window_size, epsilon = 1e-3, maxiterations = 1000):
 
     # Get probability of data with initial parameters
-    previous_loglikelihood = GetProbability(hmm_parameters, obs, mutrates)
+    previous_loglikelihood = GetProbability(hmm_parameters, obs, mutrates, window_size)
     logoutput(hmm_parameters, previous_loglikelihood, 0)
     
     # Train parameters using Baum Welch algorithm
     for i in range(1,maxiterations):
-        hmm_parameters = TrainBaumWelsch(hmm_parameters, obs, mutrates)
-        new_loglikelihood = GetProbability(hmm_parameters, obs, mutrates)
+        hmm_parameters = TrainBaumWelsch(hmm_parameters, obs, mutrates, window_size)
+        new_loglikelihood = GetProbability(hmm_parameters, obs, mutrates, window_size)
         logoutput(hmm_parameters, new_loglikelihood, i)
 
         if abs(new_loglikelihood - previous_loglikelihood) < epsilon:

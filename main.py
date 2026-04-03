@@ -15,7 +15,7 @@ def train(obs_file, mutrates_file, out_file, window_size):
     print('> window size is', window_size, 'bp') 
     print('-' * 40)
 
-    hmm_parameters = TrainModel(obs, mutrates, hmm_parameters)
+    hmm_parameters = TrainModel(obs, mutrates, hmm_parameters, window_size)
     write_HMM_to_file(hmm_parameters, out_file)
     
 
