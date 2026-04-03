@@ -28,6 +28,7 @@ def make_mutation_rate(obs_file, out_file, window_size):
     kmer_arr = np.array(kmer_arr)
     assembly_length = sum(contig_lengths.values())
     assembly_avg = np.sum(kmer_arr) / assembly_length
+    print(f'> assembly average = {assembly_avg}')
 
     Make_folder_if_not_exists(out_file)
     with open(out_file, 'w') as out:
