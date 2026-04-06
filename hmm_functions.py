@@ -111,7 +111,7 @@ def Emission_probs(emissions, observations, mutrates, window_size):
         probabilities[index,arc_state] = NB_probability_underflow_safe(k, observations[index], p)
         probabilities[index,hum_state] = 1 - probabilities[index,arc_state]
             
-    # probabilities = np.where(probabilities < 1e-30, 1e-30, probabilities)
+    probabilities = np.where(probabilities < 1e-30, 1e-30, probabilities)
     return probabilities
 
 
