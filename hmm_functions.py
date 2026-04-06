@@ -103,8 +103,8 @@ def Emission_probs(emissions, observations, mutrates, window_size):
     #             probabilities[index,state] = NB_probability_underflow_safe(k, observations[index], p)
     #         else:
     #             probabilities[index,state] = 0.0
-    arc_state = 'Archaic'
-    hum_state = 'Human'
+    arc_state = 1
+    hum_state = 0
     for index in range(n):
         p = emissions[arc_state]
         k = window_size - 1 - observations[index]
