@@ -42,9 +42,9 @@ def read_HMM_parameters_from_file(filename):
 # Set default parameters
 def get_default_HMM_parameters():
     return HMMParam(state_names = ['Human', 'Archaic'], 
-                    starting_probabilities = [0.99, 0.01], 
-                    transitions = [[0.9,0.1],[0.1,0.9]], 
-                    emissions = [0.95, 0.05])
+                    starting_probabilities = [0.5, 0.5], 
+                    transitions = [[0.5,0.5],[0.5,0.5]], 
+                    emissions = [5, 5])
 
 
 # Save HMMParam to a json file
@@ -106,13 +106,12 @@ def Emission_probs(emissions, observations, mutrates, window_size):
     arc_state = 1
     hum_state = 0
     for index in range(n):
-        # p = emissions[arc_state] * mutrates[index] * observations[index] / window_size
-        p = observations[index] / (window_size - 21 + 1)
+        p = emissions[arc_state] * mutrates
         k = window_size - 1 - observations[index]
-        probabilities[index,arc_state] = NB_probability_underflow_safe(k, emissions[index], p)
+        probabilities[index,arc_state] = NB_probability_underflow_safe(k, observations[index], p)
         probabilities[index,hum_state] = 1 - probabilities[index,arc_state]
             
-    probabilities = np.where(probabilities < 1e-30, 1e-30, probabilities)
+    probabilities = np.where(probabilities < 1e-10, 1e-10, probabilities)
     return probabilities
 
 
@@ -251,7 +250,7 @@ def TrainBaumWelsch(hmm_parameters, obs, mutrates, window_size):
     forward_probs, scales = forward(emissions, hmm_parameters.transitions, hmm_parameters.starting_probabilities)
     print(f'forward_probs[:10]: {forward_probs[:10]}')
     backward_probs = backward(emissions, hmm_parameters.transitions, scales)
-    print(f'backward_probs[:10]: {backward_probs[:10]}')
+    # print(f'backward_probs[:10]: {backward_probs[:10]}')
 
     # Update starting probs
     posterior_probs = forward_probs * backward_probs
