@@ -43,8 +43,8 @@ def read_HMM_parameters_from_file(filename):
 def get_default_HMM_parameters():
     return HMMParam(state_names = ['Human', 'Archaic'], 
                     starting_probabilities = [0.99, 0.01], 
-                    transitions = [[0.99,0.01],[0.01,0.99]], 
-                    emissions = [1, 21])
+                    transitions = [[0.9,0.1],[0.1,0.9]], 
+                    emissions = [0.95, 0.05])
 
 
 # Save HMMParam to a json file
@@ -93,15 +93,25 @@ def Emission_probs(emissions, observations, mutrates, window_size):
     n_states = len(emissions)          
     
     probabilities = np.zeros( (n, n_states) ) 
-    for state in range(n_states): 
-        for index in range(n):
-            # lam = emissions[state] * mutrates[index]
-            # probabilities[index,state] = poisson_probability_underflow_safe(observations[index], lam)
-            p = emissions[state] * observations[index] / window_size
-            k = window_size - 1 - observations[index]
-            probabilities[index,state] = NB_probability_underflow_safe(k, observations[index], p)
+    # for state in range(n_states): 
+    #     for index in range(n):
+    #         # lam = emissions[state] * mutrates[index]
+    #         # probabilities[index,state] = poisson_probability_underflow_safe(observations[index], lam)
+    #         p = emissions[state] * observations[index] / window_size
+    #         k = window_size - 1 - observations[index]
+    #         if p > 0:
+    #             probabilities[index,state] = NB_probability_underflow_safe(k, observations[index], p)
+    #         else:
+    #             probabilities[index,state] = 0.0
+    arc_state = 'Archaic'
+    hum_state = 'Human'
+    for index in range(n):
+        p = emissions[arc_state]
+        k = window_size - 1 - observations[index]
+        probabilities[index,arc_state] = NB_probability_underflow_safe(k, observations[index], p)
+        probabilities[index,hum_state] = 1 - probabilities[index,arc_state]
             
-    probabilities = np.where(probabilities < 1e-30, 1e-30, probabilities)
+    # probabilities = np.where(probabilities < 1e-30, 1e-30, probabilities)
     return probabilities
 
 
