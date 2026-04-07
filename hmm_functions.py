@@ -87,8 +87,8 @@ def NB_probability_underflow_safe(k, mu, r):
     log_nb = (gammaln(r + k) - gammaln(r) - gammaln(k + 1)
               + r * np.log(p)
               + k * np.log(1 - p))
-    # return np.exp(log_nb)
-    return log_nb
+    return np.exp(log_nb)
+    # return log_nb
     # NOTE: we return log_nb instead of the actual probability to avoid underflow, the exact value is less important than the relative values when comparing states
 
 
@@ -97,7 +97,7 @@ def Emission_probs(emissions, observations, dispersions,mutrates, window_size):
     n = len(observations)
     n_states = len(emissions)          
     probabilities = np.zeros( (n, n_states) ) 
-    log_probs = np.zeros((n, n_states))
+    # log_probs = np.zeros((n, n_states))
     
     # for state in range(n_states): 
     #     for index in range(n):
@@ -113,13 +113,13 @@ def Emission_probs(emissions, observations, dispersions,mutrates, window_size):
     for state in range(n_states):
         for t in range(n):
             mu = emissions[state] * mutrates[t]
-            log_probs[t, state] = NB_probability_underflow_safe(observations[t], mu, dispersions[state])
+            probabilities[t, state] = NB_probability_underflow_safe(observations[t], mu, dispersions[state])
             
     # Subtract row-wise max before exponentiating (log-sum-exp trick)
-    for t in range(n):
-        row_max = np.max(log_probs[t, :])
-        for state in range(n_states):
-            probabilities[t, state] = np.exp(log_probs[t, state] - row_max)
+    # for t in range(n):
+    #     row_max = np.max(log_probs[t, :])
+    #     for state in range(n_states):
+    #         probabilities[t, state] = np.exp(log_probs[t, state] - row_max)
     
     return probabilities
 
