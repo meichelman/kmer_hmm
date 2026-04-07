@@ -77,7 +77,7 @@ def poisson_probability_underflow_safe(n, lam):
     return p
 
 
-@njit
+# @njit
 def NB_probability_underflow_safe(k, mu, r):
     if mu <= 0:
         return 1.0 if k == 0 else 0.0
@@ -96,7 +96,7 @@ def NB_probability_underflow_safe(k, mu, r):
 def Emission_probs(emissions, observations, dispersions,mutrates, window_size):
     n = len(observations)
     n_states = len(emissions)          
-    # probabilities = np.zeros( (n, n_states) ) 
+    probabilities = np.zeros( (n, n_states) ) 
     log_probs = np.zeros((n, n_states))
     
     # for state in range(n_states): 
@@ -111,20 +111,17 @@ def Emission_probs(emissions, observations, dispersions,mutrates, window_size):
     #             probabilities[index,state] = 0.0
     
     for state in range(n_states):
-        e_s = emissions[state]
-        r_s = dispersions[state]
         for t in range(n):
-            mu = e_s * mutrates[t]
-            log_probs[t, state] = NB_probability_underflow_safe(observations[t], mu, r_s)
+            mu = emissions[state] * mutrates[t]
+            log_probs[t, state] = NB_probability_underflow_safe(observations[t], mu, dispersions[state])
             
     # Subtract row-wise max before exponentiating (log-sum-exp trick)
-    probs = np.zeros((n, n_states))
     for t in range(n):
         row_max = np.max(log_probs[t, :])
         for state in range(n_states):
-            probs[t, state] = np.exp(log_probs[t, state] - row_max)
+            probabilities[t, state] = np.exp(log_probs[t, state] - row_max)
     
-    return probs
+    return probabilities
 
 
 def nb_neg_log_likelihood(params, gamma_s, obs, mutrates):
