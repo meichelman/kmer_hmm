@@ -47,8 +47,8 @@ def print_script_usage():
 def main():
     parser = argparse.ArgumentParser(description=print_script_usage(), formatter_class=argparse.RawTextHelpFormatter)
     
-    parser.add_argument("-obs",help="Input file with observation data (required)", type=str, required = True)
-    parser.add_argument("-obs_rates", metavar='',help="Input file with observation rates estimates (required)", type=str, required = True)
+    parser.add_argument("-obs",help="Input file with observation data (required)", type=str)
+    parser.add_argument("-obs_rates", metavar='',help="Input file with observation rates estimates (required)", type=str)
     parser.add_argument("-param", metavar='',help="HMM parameters file (default: human/neanderthal-like parameters)", type=str)
     parser.add_argument("-out", metavar='',help="Output file with trained HMM parameters (default: 'trained.json')", default = 'trained.json')
     
