@@ -3,6 +3,7 @@ import numpy as np
 from numba import njit
 from math import lgamma
 from scipy.optimize import minimize
+from scipy.special import gammaln
 
 
 
@@ -184,6 +185,7 @@ def viterbi(probabilities, transitions, init_start):
     return forwards_in, backtracks
 
 
+@njit
 def nb_neg_log_likelihood(params, gamma_s, obs, mutrates):
     '''Calculate negative log-likelihood of the data given the parameters for a single state, weighted by the posterior probability of being in that state'''
     e_s = np.exp(params[0])
@@ -192,7 +194,7 @@ def nb_neg_log_likelihood(params, gamma_s, obs, mutrates):
     mu = e_s * mutrates
     p  = r_s / (r_s + mu)
 
-    log_nb = (lgamma(r_s + obs) - lgamma(r_s) - lgamma(obs + 1)
+    log_nb = (gammaln(r_s + obs) - gammaln(r_s) - gammaln(obs + 1)
               + r_s * np.log(p)
               + obs * np.log(np.maximum(1 - p, 1e-300)))
 
