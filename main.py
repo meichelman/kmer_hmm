@@ -28,7 +28,7 @@ def decode(obs_file, mutrates_file, param_file, out_file):
     print('> Decode with posterior decoding')
     print('-' * 40)
     
-    emissions = Emission_probs(hmm_parameters.emissions, obs, mutrates)
+    emissions = Emission_probs(hmm_parameters.emissions, obs, hmm_parameters.dispersions, mutrates)
     posterior_probs = Calculate_Posterior_probabillities(emissions, hmm_parameters)
     pmap_path = PMAP_path(posterior_probs)
     viterbi_path = Viterbi_path(emissions, hmm_parameters)
@@ -73,7 +73,7 @@ def main():
         # python3 main.py decode obs.bed mutrates.txt trained.json
         
         if len(args) < 5:
-            sys.exit('\n\nMust input:\n\tParameters\n\tObservations\n\tMutation rate\n\tOutput\n\n')
+            sys.exit('\n\nMust input:\n\tObservations\n\tMutation rate\n\tParameters\n\n')
         
         obs, mutrates, params = args[2], args[3], args[4]
         out = 'probs_and_path.tsv'

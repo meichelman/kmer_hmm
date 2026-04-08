@@ -366,6 +366,6 @@ def Write_posterior_probs(obs, mutrates, post_seq, post_path, viterbi_path, hmm_
 
         i = 0
         for (obs, m, posterior, post_state, viterbi_state) in zip(obs, mutrates, post_seq, post_path, viterbi_path):
-            posterior_to_print = '\t'.join([str(round(x, 8)) for x in posterior])
+            posterior_to_print = '\t'.join([str(round(x, 4)) for x in posterior])
             out.write(f'{i * window_size}\t{(i + 1) * window_size}\t{obs}\t{m}\t{posterior_to_print}\t{hmm_parameters.state_names[post_state]}\t{hmm_parameters.state_names[viterbi_state]}\n')
             i += 1
