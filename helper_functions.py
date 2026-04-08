@@ -64,7 +64,7 @@ def load_obs_and_obs_rates(obs_file, obs_rates_file):
                         f"| approx_pos={local_idx * window_size}")
                     break
 
-    return obs_arr, obs_rates_arr, contig_offsets
+    return obs_arr, obs_rates_arr, contig_offsets, window_size
 
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------

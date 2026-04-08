@@ -9,7 +9,7 @@ def decode(obs_file, obs_rates_file, param_file, out_file):
     
     print('Loading data...')
     hmm_parameters = read_HMM_parameters_from_file(param_file)
-    obs, obs_rates, contig_offsets = load_obs_and_obs_rates(obs_file, obs_rates_file)
+    obs, obs_rates, contig_offsets, window_size = load_obs_and_obs_rates(obs_file, obs_rates_file)
 
     print('-' * 40)
     print(f'> Number of windows: {len(obs)}')
@@ -24,7 +24,7 @@ def decode(obs_file, obs_rates_file, param_file, out_file):
     print('Determining most likely path using Viterbi algorithm...')
     viterbi_path = Viterbi_path(emissions_probs, hmm_parameters)
     print('Writing output...')
-    Write_posterior_probs(obs, obs_rates, posterior_probs, pmap_path, viterbi_path, hmm_parameters, out_file, window_size = 2000)
+    Write_posterior_probs(obs, obs_rates, posterior_probs, pmap_path, viterbi_path, hmm_parameters, out_file, window_size)
     print('Done')
     
     return
