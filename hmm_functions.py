@@ -1,17 +1,17 @@
-import numpy as np
-from numba import njit
 import json
-import math
-from numba import njit
 import numpy as np
-from scipy.special import gammaln
+from numba import njit
+from math import lgamma
 from scipy.optimize import minimize
+
+
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 # HMM Parameter Class
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 class HMMParam:
-    def __init__(self, state_names, starting_probabilities, transitions, emissions, dispersions=None): 
+    def __init__(self, state_names, starting_probabilities, transitions, emissions, dispersions): 
         self.state_names = np.array(state_names)
         self.starting_probabilities = np.array(starting_probabilities)
         self.transitions = np.array(transitions)
@@ -31,7 +31,6 @@ class HMMParam:
 
 
 def read_HMM_parameters_from_file(filename):
-
     if filename is None:
         return get_default_HMM_parameters()
 
@@ -42,15 +41,15 @@ def read_HMM_parameters_from_file(filename):
                     starting_probabilities = data['starting_probabilities'], 
                     transitions = data['transitions'], 
                     emissions = data['emissions'],
-                    dispersions = data.get('dispersions', None))
+                    dispersions = data['dispersions'])
 
 
 def get_default_HMM_parameters():
     return HMMParam(state_names = ['Human', 'Archaic'], 
-                    starting_probabilities = [0.99, 0.01], 
-                    transitions = [[0.9,0.1],[0.1,0.9]], 
-                    emissions = [1, 10],
-                    dispersions = [10.0, 5.0])
+                    starting_probabilities = [0.95, 0.05], 
+                    transitions = [[0.99,0.01],[0.05,0.95]], 
+                    emissions = [0.3, 4.2],
+                    dispersions = [0.002, 0.144])
 
 
 def write_HMM_to_file(hmmparam, outfile):
@@ -60,138 +59,96 @@ def write_HMM_to_file(hmmparam, outfile):
         out.write(json_string)
 
 
-
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 # HMM functions
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 @njit
-def poisson_probability_underflow_safe(n, lam):
-    # naive:   np.exp(-lam) * lam**n / factorial(n)
-    
-    # iterative, to keep the components from getting too large or small:
-    p = np.exp(-lam)
-    for i in range(n):
-        p *= lam
-        p /= i+1
-    return p
-
-
-# @njit
-def NB_probability_underflow_safe(k, mu, r):
-    if mu <= 0:
+def neg_binom_probability(k, lam, r):
+    '''Calculate the probability of observing k given a negative binomial distribution with expectation lam and dispersion r'''
+    if lam <= 0:
         return 1.0 if k == 0 else 0.0
     # Need to change this if and when we change how the mutation rate is calculated
     
-    p = r / (r + mu)
+    p = r / (r + lam)
     
     # Work in log space to avoid underflow/overflow issues
-    log_nb = (gammaln(r + k) - gammaln(r) - gammaln(k + 1)
+    log_neg_binom = (lgamma(r + k) - lgamma(r) - lgamma(k + 1)
               + r * np.log(p)
               + k * np.log(1 - p))
     
-    return np.exp(log_nb)
+    return np.exp(log_neg_binom)
 
 
-# @njit
-def Emission_probs(emissions, observations, dispersions, mutrates):
-    n = len(observations)
-    n_states = len(emissions)          
-    probabilities = np.zeros((n, n_states)) 
+@njit
+def emission_probailities(observations, obs_rates, emissions, dispersions):
+    '''Calculate the emission probabilities for each observation and state'''
+    num_obs = len(observations)
+    num_states = len(emissions)          
+    probabilities = np.zeros((num_obs, num_states)) 
     
-    for state in range(n_states):
-        for t in range(n):
-            mu = emissions[state] * mutrates[t]
-            probabilities[t, state] = NB_probability_underflow_safe(observations[t], mu, dispersions[state])
+    for state in range(num_states):
+        for t in range(num_obs):
+            lam = emissions[state] * obs_rates[t]
+            probabilities[t, state] = neg_binom_probability(observations[t], lam, dispersions[state])
     
     return probabilities
 
 
-def nb_neg_log_likelihood(params, gamma_s, obs, mutrates):
-    e_s = np.exp(params[0])
-    r_s = np.exp(params[1])
-
-    mu = e_s * mutrates
-    p  = r_s / (r_s + mu)
-
-    log_nb = (gammaln(r_s + obs) - gammaln(r_s) - gammaln(obs + 1)
-              + r_s * np.log(p)
-              + obs * np.log(np.maximum(1 - p, 1e-300)))
-
-    return -np.sum(gamma_s * log_nb)
-
-
-def update_nb_emissions(posterior_probs, obs, mutrates, current_emissions, current_dispersions):
-    n_states = posterior_probs.shape[1]
-    new_e = np.zeros(n_states)
-    new_r = np.zeros(n_states)
-
-    for state in range(n_states):
-        gamma_s = posterior_probs[:, state]
-        # print(f'state {state}: gamma_s sum={gamma_s.sum():.4f}, min={gamma_s.min():.4f}, max={gamma_s.max():.4f}')
-        x0 = [
-            np.log(current_emissions[state]),
-            np.log(current_dispersions[state]),
-        ]
-        result = minimize(
-            nb_neg_log_likelihood,
-            x0,
-            args=(gamma_s, obs, mutrates),
-            method='L-BFGS-B'
-        )
-        new_e[state] = np.exp(result.x[0])
-        new_r[state] = np.exp(result.x[1])
-
-    return new_e, new_r
-
-
 @njit
-def fwd_step(alpha_prev, E, trans_mat):
-    alpha_new = (alpha_prev @ trans_mat) * E
+def fwd_step(alpha_prev, emission_prob, trans_mat):
+    '''Calculate the forward probabilities for the next time step'''
+    alpha_new = (alpha_prev @ trans_mat) * emission_prob
     n = np.sum(alpha_new)
     return alpha_new / n, n
 
 
 @njit
-def forward(probabilities, transitions, init_start):
-    n = len(probabilities)
-    forwards_in = np.zeros( (n, len(init_start)) ) 
-    scale_param = np.ones(n)
+def forward(emissions_probs, transitions, init_start):
+    '''Calculate the forward probabilities for all time steps'''
+    num_obs = len(emissions_probs)
+    forwards_in = np.zeros( (num_obs, len(init_start)) ) 
+    scales = np.ones(num_obs)
 
-    for t in range(n):
+    for t in range(num_obs):
         if t == 0:
-            forwards_in[t,:] = init_start  * probabilities[t,:]
-            scale_param[t] = np.sum( forwards_in[t,:] )
-            forwards_in[t,:] = forwards_in[t,:] / scale_param[t]  
+            forwards_in[t,:] = init_start  * emissions_probs[t,:]
+            scales[t] = np.sum(forwards_in[t,:])
+            forwards_in[t,:] = forwards_in[t,:] / scales[t]  
         else:
-            forwards_in[t,:], scale_param[t] = fwd_step(forwards_in[t-1,:], probabilities[t,:], transitions) 
+            forwards_in[t,:], scales[t] = fwd_step(forwards_in[t-1,:], emissions_probs[t,:], transitions) 
 
-    return forwards_in, scale_param
+    return forwards_in, scales
 
 
 @njit
-def bwd_step(beta_next, E, trans_mat, n):
-    beta = (trans_mat * E) @ beta_next
+def bwd_step(beta_next, emission_prob, trans_mat, n):
+    '''Calculate the backward probabilities for the previous time step'''
+    beta = (trans_mat * emission_prob) @ beta_next
     return beta / n
 
 
 @njit
-def backward(emissions, transitions, scales):
-    n, n_states = emissions.shape
-    beta = np.ones((n, n_states))
-    for i in range(n - 1, 0, -1):
-        beta[i - 1,:] = bwd_step(beta[i,:], emissions[i,:], transitions, scales[i])
+def backward(emissions_probs, transitions, scales):
+    '''Calculate the backward probabilities for all time steps'''
+    num_obs, num_states = emissions_probs.shape
+    beta = np.ones((num_obs, num_states))
+    for i in range(num_obs - 1, 0, -1):
+        beta[i - 1,:] = bwd_step(beta[i,:], emissions_probs[i,:], transitions, scales[i])
     return beta
 
 
-def GetProbability(hmm_parameters, obs, mutrates):
-    emissions = Emission_probs(hmm_parameters.emissions, obs, hmm_parameters.dispersions, mutrates)
-    _, scales = forward(emissions, hmm_parameters.transitions, hmm_parameters.starting_probabilities)
+@njit
+def get_log_likelihood(hmm_parameters, observations, obs_rates):
+    '''Calculate the log-likelihood of the data given the HMM parameters'''
+    emissions_probs = emission_probailities(observations, obs_rates, hmm_parameters.emissions, hmm_parameters.dispersions)
+    _, scales = forward(emissions_probs, hmm_parameters.transitions, hmm_parameters.starting_probabilities)
     return np.sum(np.log(scales))
 
 
 @njit
 def fwd_step_keep_track(alpha_prev, E, trans_mat):
+    '''Calculate the forward probabilities for the next time step, while keeping track of which previous state contributed most to each current state'''
     
     # scaling factor
     n = np.sum((alpha_prev @ trans_mat) * E)
@@ -212,11 +169,12 @@ def fwd_step_keep_track(alpha_prev, E, trans_mat):
 
 @njit
 def viterbi(probabilities, transitions, init_start):
-    n = len(probabilities)
-    forwards_in = np.zeros( (n, len(init_start)) ) 
-    backtracks = np.zeros( (n, len(init_start)), dtype=np.int32 ) 
+    '''Calculate the Viterbi path and its probability for all time steps'''
+    num_obs = len(probabilities)
+    forwards_in = np.zeros((num_obs, len(init_start))) 
+    backtracks = np.zeros((num_obs, len(init_start)), dtype=np.int32) 
 
-    for t in range(n):
+    for t in range(num_obs):
         if t == 0:
             forwards_in[t,:] = init_start * probabilities[t,:]
             scale_param = np.sum( forwards_in[t,:] )
@@ -228,17 +186,19 @@ def viterbi(probabilities, transitions, init_start):
 
 
 @njit
-def calculate_log(x):
-	return np.log(x)
+def nb_neg_log_likelihood(params, gamma_s, obs, mutrates):
+    '''Calculate negative log-likelihood of the data given the parameters for a single state, weighted by the posterior probability of being in that state'''
+    e_s = np.exp(params[0])
+    r_s = np.exp(params[1])
 
+    mu = e_s * mutrates
+    p  = r_s / (r_s + mu)
 
-@njit
-def hybrid_step(prev, alpha, em, trans):
-    value = prev + alpha * calculate_log(em * trans)
-    best_state = np.argmax(value)
-    max_prob = value[best_state]
+    log_nb = (lgamma(r_s + obs) - lgamma(r_s) - lgamma(obs + 1)
+              + r_s * np.log(p)
+              + obs * np.log(np.maximum(1 - p, 1e-300)))
 
-    return best_state, max_prob
+    return -np.sum(gamma_s * log_nb)
 
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -265,59 +225,74 @@ def logoutput(hmm_parameters, loglikelihood, iteration):
     print(f'{iteration}\t{round(loglikelihood, 4)}\t{print_starting_probabilities}\t{print_emissions}\t{print_transitions}\t{print_dispersions}')
 
 
-def TrainBaumWelsch(hmm_parameters, obs, mutrates):
+def maximize_emissions_dispersions(posterior_probs, observations, obs_rates, current_emissions, current_dispersions):
+    num_states = posterior_probs.shape[1]
+    new_emissions = np.zeros(num_states)
+    new_dispersions = np.zeros(num_states)
 
-    n_states = len(hmm_parameters.starting_probabilities)
+    for state in range(num_states):
+        gamma_s = posterior_probs[:, state]
+        
+        start_params = [np.log(current_emissions[state]), np.log(current_dispersions[state]),]
+        
+        result = minimize(nb_neg_log_likelihood, start_params, args=(gamma_s, observations, obs_rates), method='L-BFGS-B')
+        
+        new_emissions[state] = np.exp(result.x[0])
+        new_dispersions[state] = np.exp(result.x[1])
 
-    emissions = Emission_probs(hmm_parameters.emissions, obs, hmm_parameters.dispersions, mutrates)
-    forward_probs, scales = forward(emissions, hmm_parameters.transitions, hmm_parameters.starting_probabilities)
-    backward_probs = backward(emissions, hmm_parameters.transitions, scales)
+    return new_emissions, new_dispersions
+
+
+def TrainBaumWelsch(hmm_parameters, observations, obs_rates):
+
+    num_states = len(hmm_parameters.starting_probabilities)
+
+    emissions_probs = emission_probailities(observations, obs_rates, hmm_parameters.emissions, hmm_parameters.dispersions)
+    forward_probs, scales = forward(emissions_probs, hmm_parameters.transitions, hmm_parameters.starting_probabilities)
+    backward_probs = backward(emissions_probs, hmm_parameters.transitions, scales)
 
     # Update starting probs
     posterior_probs = forward_probs * backward_probs
-    normalize = np.sum(posterior_probs)
-    new_starting_probabilities = np.sum(posterior_probs, axis=0) / normalize 
+    scale = np.sum(posterior_probs)
+    new_starting_probabilities = np.sum(posterior_probs, axis=0) / scale
 
     # Update emissions and dispersions
-    new_emissions, new_dispersions = update_nb_emissions(
-        posterior_probs, obs, mutrates,
-        hmm_parameters.emissions, hmm_parameters.dispersions
-    )
+    new_emissions, new_dispersions = maximize_emissions_dispersions(posterior_probs, observations, obs_rates, hmm_parameters.emissions, hmm_parameters.dispersions)
 
     # Update transition probs
-    new_transitions_matrix = np.zeros((n_states, n_states))
-    for state1 in range(n_states):
-        for state2 in range(n_states):
+    new_transitions_matrix = np.zeros((num_states, num_states))
+    for state1 in range(num_states):
+        for state2 in range(num_states):
             new_transitions_matrix[state1, state2] = np.sum(
                 forward_probs[:-1, state1] * backward_probs[1:, state2]
                 * hmm_parameters.transitions[state1, state2]
-                * emissions[1:, state2] / scales[1:]
+                * emissions_probs[1:, state2] / scales[1:]
             )
     new_transitions_matrix /= new_transitions_matrix.sum(axis=1)[:, np.newaxis]
 
     return HMMParam(hmm_parameters.state_names, new_starting_probabilities, new_transitions_matrix, new_emissions, new_dispersions)
 
 
-def TrainModel(obs, mutrates, hmm_parameters, epsilon = 1e-3, maxiterations = 50):
-
+def TrainModel(observations, obs_rates, hmm_parameters, epsilon = 1e-3, maxiterations = 1000):
+    
     # Get probability of data with initial parameters
-    previous_loglikelihood = GetProbability(hmm_parameters, obs, mutrates)
+    previous_loglikelihood = get_log_likelihood(hmm_parameters, observations, obs_rates)
     logoutput(hmm_parameters, previous_loglikelihood, 0)
     
-    # Train parameters using Baum Welch algorithm
-    # for i in range(1,maxiterations):
-    for i in range(1, maxiterations):
-        hmm_parameters = TrainBaumWelsch(hmm_parameters, obs, mutrates)
-        new_loglikelihood = GetProbability(hmm_parameters, obs, mutrates)
-        logoutput(hmm_parameters, new_loglikelihood, i)
+    # Train parameters using Baum-Welch algorithm
+    for iter in range(1, maxiterations):
+        hmm_parameters = TrainBaumWelsch(hmm_parameters, observations, obs_rates) # Maximization
+        new_loglikelihood = get_log_likelihood(hmm_parameters, observations, obs_rates) # Expectation
+        
+        logoutput(hmm_parameters, new_loglikelihood, iter)
 
         if abs(new_loglikelihood - previous_loglikelihood) < epsilon:
             break 
 
         previous_loglikelihood = new_loglikelihood
 
-    # Write the optimal parameters
     return hmm_parameters
+
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Decode (posterior decoding)
