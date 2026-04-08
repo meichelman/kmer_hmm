@@ -72,7 +72,7 @@ def main():
     elif mode == 'decode':
         # python3 main.py decode obs.bed mutrates.txt trained.json
         
-        if len(args) < 6:
+        if len(args) < 5:
             sys.exit('\n\nMust input:\n\tParameters\n\tObservations\n\tMutation rate\n\tOutput\n\n')
         
         obs, mutrates, params = args[2], args[3], args[4]

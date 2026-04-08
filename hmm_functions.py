@@ -128,7 +128,7 @@ def update_nb_emissions(posterior_probs, obs, mutrates, current_emissions, curre
 
     for state in range(n_states):
         gamma_s = posterior_probs[:, state]
-        print(f'state {state}: gamma_s sum={gamma_s.sum():.4f}, min={gamma_s.min():.4f}, max={gamma_s.max():.4f}')
+        # print(f'state {state}: gamma_s sum={gamma_s.sum():.4f}, min={gamma_s.min():.4f}, max={gamma_s.max():.4f}')
         x0 = [
             np.log(current_emissions[state]),
             np.log(current_dispersions[state]),
