@@ -206,22 +206,25 @@ def nb_neg_log_likelihood(params, gamma_s, obs, mutrates):
 
 def logoutput(hmm_parameters, loglikelihood, iteration):
 
-    n_states = len(hmm_parameters.emissions)
+    num_states = len(hmm_parameters.emissions)
+    fmt = lambda arr, decimals: '\t'.join([f'{x:.{decimals}f}' for x in arr])
 
-    # Make header
-    if iteration == 0:    
-        print_emissions = '\t'.join(['emis{0}'.format(x + 1) for x in range(n_states)])
-        print_starting_probabilities = '\t'.join(['start{0}'.format(x + 1) for x in range(n_states)])
-        print_transitions = '\t'.join(['trans{0}_{0}'.format(x + 1) for x in range(n_states)])
-        print_dispersions = '\t'.join(['disp{0}'.format(x + 1) for x in range(n_states)])
-        print(f'iter\tlog-l\t{print_starting_probabilities}\t{print_emissions}\t{print_transitions}\t{print_dispersions}')
+    if iteration == 0:
+        header_parts = [
+            '\t'.join([f'start{i+1}' for i in range(num_states)]),
+            '\t'.join([f'emis{i+1}'  for i in range(num_states)]),
+            '\t'.join([f'trans{i+1}_{i+1}' for i in range(num_states)]),
+            '\t'.join([f'disp{i+1}'  for i in range(num_states)]),
+        ]
+        print('iter\tlog-l\t' + '\t'.join(header_parts))
 
-    # Print parameters
-    print_emissions = '\t'.join([str(x) for x in np.matrix.round(hmm_parameters.emissions, 4)])
-    print_starting_probabilities = '\t'.join([str(x) for x in np.matrix.round(hmm_parameters.starting_probabilities, 3)])
-    print_transitions = '\t'.join([str(x) for x in np.matrix.round(hmm_parameters.transitions, 4).diagonal()])
-    print_dispersions = '\t'.join([str(x) for x in np.matrix.round(hmm_parameters.dispersions, 4)])
-    print(f'{iteration}\t{round(loglikelihood, 4)}\t{print_starting_probabilities}\t{print_emissions}\t{print_transitions}\t{print_dispersions}')
+    row_parts = [
+        fmt(hmm_parameters.starting_probabilities, 4),
+        fmt(hmm_parameters.emissions, 4),
+        fmt(hmm_parameters.transitions.diagonal(), 4),
+        fmt(hmm_parameters.dispersions, 4),
+    ]
+    print(f'{iteration}\t{loglikelihood:.4e}\t' + '\t'.join(row_parts))
 
 
 def maximize_emissions_dispersions(posterior_probs, observations, obs_rates, current_emissions, current_dispersions):
