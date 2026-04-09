@@ -1,5 +1,5 @@
 import argparse
-from hmm_functions import read_HMM_parameters_from_file, TrainModel, write_HMM_to_file
+from hmm_functions import read_HMM_parameters_from_file, train_model, write_HMM_to_file
 from helper_functions import load_obs_and_obs_rates
 import numpy as np
 
@@ -17,7 +17,7 @@ def train(obs_file, obs_rates_file, param_file, out_file):
     print('-' * 40)
 
     print('Training HMM...')
-    hmm_parameters = TrainModel(obs, obs_rates, hmm_parameters)
+    hmm_parameters = train_model(obs, obs_rates, hmm_parameters)
     print('Writing output...')
     write_HMM_to_file(hmm_parameters, out_file)
     print('Done')

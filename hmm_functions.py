@@ -245,7 +245,7 @@ def maximize_emissions_dispersions(posterior_probs, observations, obs_rates, cur
     return new_emissions, new_dispersions
 
 
-def TrainBaumWelsch(hmm_parameters, observations, obs_rates):
+def train_baum_welsch(hmm_parameters, observations, obs_rates):
 
     num_states = len(hmm_parameters.starting_probabilities)
 
@@ -275,7 +275,7 @@ def TrainBaumWelsch(hmm_parameters, observations, obs_rates):
     return HMMParam(hmm_parameters.state_names, new_starting_probabilities, new_transitions_matrix, new_emissions, new_dispersions)
 
 
-def TrainModel(observations, obs_rates, hmm_parameters, epsilon = 1e-3, maxiterations = 1000):
+def train_model(observations, obs_rates, hmm_parameters, epsilon = 1e-3, maxiterations = 1000):
     
     # Get probability of data with initial parameters
     previous_loglikelihood = get_log_likelihood(hmm_parameters, observations, obs_rates)
@@ -283,7 +283,7 @@ def TrainModel(observations, obs_rates, hmm_parameters, epsilon = 1e-3, maxitera
     
     # Train parameters using Baum-Welch algorithm
     for iter in range(1, maxiterations):
-        hmm_parameters = TrainBaumWelsch(hmm_parameters, observations, obs_rates) # Maximization
+        hmm_parameters = train_baum_welsch(hmm_parameters, observations, obs_rates) # Maximization
         new_loglikelihood = get_log_likelihood(hmm_parameters, observations, obs_rates) # Expectation
         
         logoutput(hmm_parameters, new_loglikelihood, iter)
@@ -300,7 +300,7 @@ def TrainModel(observations, obs_rates, hmm_parameters, epsilon = 1e-3, maxitera
 # Decode (posterior decoding)
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def Calculate_Posterior_probabillities(emissions, hmm_parameters):
+def calculate_posterior_probabilities(emissions, hmm_parameters):
     """Get posterior probability of being in state s at time t"""
     
     forward_probs, scales = forward(emissions, hmm_parameters.transitions, hmm_parameters.starting_probabilities)
@@ -310,13 +310,13 @@ def Calculate_Posterior_probabillities(emissions, hmm_parameters):
     return posterior_probabilities
 
 
-def PMAP_path(posterior_probabilities):
+def pmap_path(posterior_probabilities):
     """Get maximum posterior decoding path"""
     path = np.argmax(posterior_probabilities, axis = 0)
     return path 
 
 
-def Viterbi_path(emissions, hmm_parameters):
+def viterbi_path(emissions, hmm_parameters):
     """Get Viterbi path (most likely path)"""
     n_obs, _ = emissions.shape
     
@@ -335,17 +335,38 @@ def Viterbi_path(emissions, hmm_parameters):
 # Write segments to output file
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def Write_posterior_probs(obs, obs_rates, post_seq, post_path, viterbi_path, hmm_parameters, filename, window_size):
-    post_seq = post_seq.T
+def write_posterior_probs(contig_slices, obs, obs_rates, posteriors, path, hmm_parameters, filename, window_size):
+    posteriors = posteriors.T
 
     with open(filename, 'w') as out:
         state_names = ''
         for state in hmm_parameters.state_names:
             state_names += f'p{state}\t'
-        out.write(f'start\tend\tcount\tobs_rate\t{state_names}posterior_state\tviterbi_state\n')
+        out.write(f'contig\tstart\tend\tcount\tobs_rate\t{state_names}state\n')
 
-        i = 0
-        for (obs_i, obs_rate, posterior, post_state, viterbi_state) in zip(obs, obs_rates, post_seq, post_path, viterbi_path):
-            posterior_to_print = '\t'.join([str(round(x, 4)) for x in posterior])
-            out.write(f'{i * window_size}\t{(i + 1) * window_size}\t{obs_i}\t{obs_rate}\t{posterior_to_print}\t{hmm_parameters.state_names[post_state]}\t{hmm_parameters.state_names[viterbi_state]}\n')
-            i += 1
+        for contig, sl in contig_slices.items():
+            for local_i, (obs_i, obs_rate, post, state) in enumerate(zip(obs[sl], obs_rates[sl], posteriors[sl], path[sl])):
+                start = local_i * window_size
+                end = (local_i + 1) * window_size
+                posterior_to_print = '\t'.join([str(round(x, 4)) for x in post])
+                out.write(f'{contig}\t{start}\t{end}\t{obs_i}\t{obs_rate}\t{posterior_to_print}\t{hmm_parameters.state_names[state]}\n')
+                
+
+def write_tracts(contig_slices, path, hmm_parameters, filename, window_size):
+
+    with open(filename, 'w') as out:
+        out.write(f'contig\tstart\tend\tlength\tstate\n')
+
+        for contig, sl in contig_slices.items():
+            contig_path = path[sl]
+
+            tract_start = 0
+            for i, state in enumerate(contig_path):
+                # Flush tract when state changes or we reach the end
+                if i == len(contig_path) - 1 or contig_path[i + 1] != state:
+                    tract_end = i + 1  # exclusive
+                    start = tract_start * window_size
+                    end = tract_end * window_size
+                    length = tract_end - tract_start
+                    out.write(f'{contig}\t{start}\t{end}\t{length}\t{hmm_parameters.state_names[state]}\n')
+                    tract_start = i + 1

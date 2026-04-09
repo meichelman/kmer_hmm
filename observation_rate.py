@@ -16,9 +16,17 @@ def make_obs_rate(obs_file, out_file, bin_size):
     with open(obs_file) as infile:
         for line in infile:
             contig, start, end, count = line.split('\t')
-            window = int(start) - int(start) % bin_size
-            kmer_dict[contig][window] += int(count)
-            contig_lengths[contig] = max(contig_lengths[contig], int(end))
+            start, end, count = int(start), int(end), int(count)
+            
+            if count == 0:
+                # Span covers multiple zero windows
+                for window in range(start - start % bin_size, end, bin_size):
+                    kmer_dict[contig][window] += 0
+            else:
+                window = start - start % bin_size
+                kmer_dict[contig][window] += count
+
+            contig_lengths[contig] = max(contig_lengths[contig], end)
 
     # Calculate observation rates
     print('Calculating observation rates...')
@@ -41,7 +49,6 @@ def make_obs_rate(obs_file, out_file, bin_size):
 
     # Write output
     print('Writing output...')
-    Make_folder_if_not_exists(out_file)
     with open(out_file, 'w') as outfile:
         outfile.write('contig\tstart\tend\tobs_rate\n')
         for position, kmer_count in zip(assembly_positions, kmer_arr):
