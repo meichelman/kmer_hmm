@@ -116,7 +116,8 @@ def main():
     else:
         decode_method = 'PMAP'
         print('> Decoding method: PMAP')
-    print(f'> Output file with decoded paths: {args.out}')
+    print(f'> Output file with decoded path: {args.out_path}')
+    print(f'> Output file with decoded tracts: {args.out_tracts}')
     print('-' * 40)
 
     decode(args.obs, args.obs_rates, args.param, decode_method, args.out_path, args.out_tracts)
