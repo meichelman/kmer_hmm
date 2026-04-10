@@ -65,20 +65,20 @@ def write_HMM_to_file(hmmparam, outfile):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 @njit
-def neg_binom_probability(k, lam, r):
-    '''Calculate the probability of observing k given a negative binomial distribution with expectation lam and dispersion r'''
-    if lam <= 0:
+def neg_binom_probability(k, mu, r):
+    '''Calculate the probability of observing k given a negative binomial distribution with expectation mu and dispersion r'''
+    if mu <= 0:
         return 1.0 if k == 0 else 0.0
     # Need to change this if and when we change how the mutation rate is calculated
     
-    p = r / (r + lam)
+    p = r / (r + mu)
     
     # Work in log space to avoid underflow/overflow issues
-    log_neg_binom = (lgamma(r + k) - lgamma(r) - lgamma(k + 1)
+    log_prob = (lgamma(r + k) - lgamma(r) - lgamma(k + 1)
               + r * np.log(p)
               + k * np.log(1 - p))
     
-    return np.exp(log_neg_binom)
+    return np.exp(log_prob)
 
 
 @njit
@@ -90,8 +90,8 @@ def emission_probabilities(observations, obs_rates, emissions, dispersions):
     
     for state in range(num_states):
         for t in range(num_obs):
-            lam = emissions[state] * obs_rates[t]
-            probabilities[t, state] = neg_binom_probability(observations[t], lam, dispersions[state])
+            mu = emissions[state] * obs_rates[t]
+            probabilities[t, state] = neg_binom_probability(observations[t], mu, dispersions[state])
     
     return probabilities
 

@@ -1,0 +1,15 @@
+---
+observations: kmer_counts_rle.bed
+
+observation_rate:
+  output_file: obs_rate.bed
+  bin_size: 1000000
+
+train:
+  # start_params: params.json
+  output_file: trained.json
+
+decode:
+  use_viterbi: False
+  output_path_file: paths.txt
+  output_tracts_file: tracts.txt
