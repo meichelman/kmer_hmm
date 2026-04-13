@@ -29,6 +29,18 @@ def decode(obs_file, obs_rates_file, param_file, decode_method, out_path_file, o
     all_posterior_probs = []
     all_paths = []
     
+    emissions_probs = emission_probabilities(obs, obs_rates, hmm_parameters.emissions, hmm_parameters.dispersions)
+    with open('emissions_probs.txt', 'w') as f:
+        # Header: one column per state
+        header = '\t'.join([f'state_{s}' for s in range(emissions_probs.shape[1])])
+        f.write('window\t' + header + '\n')
+        
+        # One row per window
+        for i in range(emissions_probs.shape[0]):
+            row = '\t'.join(map(str, emissions_probs[i]))
+            f.write(f'{i}\t' + row + '\n')
+
+    
     print('Calculating posterior probabilities...')
     for contig, sl in contig_slices.items():
         contig_obs = obs[sl]
