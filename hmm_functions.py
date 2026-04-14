@@ -65,6 +65,18 @@ def write_HMM_to_file(hmmparam, outfile):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 @njit
+def poisson_probability(n, mu):
+    '''Calculate the probability of observing n given a Poisson distribution with expectation lam, while avoiding underflow issues'''
+    # naive:   np.exp(-lam) * lam**n / factorial(n)
+    # iterative, to keep the components from getting too large or small:
+    p = np.exp(mu)
+    for i in range(n):
+        p *= mu
+        p /= i+1
+    return p
+
+
+@njit
 def neg_binom_probability(k, mu, r):
     '''Calculate the probability of observing k given a negative binomial distribution with expectation mu and dispersion r'''
     if mu <= 0:
@@ -91,6 +103,7 @@ def emission_probabilities(observations, obs_rates, emissions, dispersions):
     for state in range(num_states):
         for t in range(num_obs):
             mu = emissions[state] * obs_rates[t]
+            # probabilities[t, state] = poisson_probability(observations[t], mu)
             probabilities[t, state] = neg_binom_probability(observations[t], mu, dispersions[state])
     
     return probabilities
