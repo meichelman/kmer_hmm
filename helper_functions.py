@@ -60,33 +60,33 @@ def load_obs_and_obs_rates(obs_file, obs_rates_file):
                 global_idx += 1
 
     # Load obs_rates, mapping each rate to its windows by genomic position
-    global_idx = 0
-    with open(obs_rates_file) as infile:
-        for line in infile:
-            fields = line.split('\t')
-            start, end, count = int(fields[1]), int(fields[2]), int(fields[3])
-
-            if count == 0:
-                num_windows_in_run = math.ceil((end - start) / window_size)
-                global_idx += num_windows_in_run
-            else:
-                obs_rates_arr[global_idx] = count
-                global_idx += 1
-
+    # global_idx = 0
     # with open(obs_rates_file) as infile:
     #     for line in infile:
-    #         if line.startswith('contig'):
-    #             continue
-    #         fields = line.strip().split('\t')
-    #         contig, start, end, obs_rate = fields[0], int(fields[1]), int(fields[2]), float(fields[3])
+    #         fields = line.split('\t')
+    #         start, end, count = int(fields[1]), int(fields[2]), int(fields[3])
 
-    #         contig_offset = contig_offsets[contig]
-    #         contig_end = contig_offset + contig_window_counts[contig]
+    #         if count == 0:
+    #             num_windows_in_run = math.ceil((end - start) / window_size)
+    #             global_idx += num_windows_in_run
+    #         else:
+    #             obs_rates_arr[global_idx] = count
+    #             global_idx += 1
 
-    #         global_idx_start = contig_offset + start // window_size
-    #         global_idx_end   = min(contig_offset + math.ceil(end / window_size), contig_end)
+    with open(obs_rates_file) as infile:
+        for line in infile:
+            if line.startswith('contig'):
+                continue
+            fields = line.strip().split('\t')
+            contig, start, end, obs_rate = fields[0], int(fields[1]), int(fields[2]), float(fields[3])
 
-    #         obs_rates_arr[global_idx_start:global_idx_end] = obs_rate
+            contig_offset = contig_offsets[contig]
+            contig_end = contig_offset + contig_window_counts[contig]
+
+            global_idx_start = contig_offset + start // window_size
+            global_idx_end   = min(contig_offset + math.ceil(end / window_size), contig_end)
+
+            obs_rates_arr[global_idx_start:global_idx_end] = obs_rate
 
     # Catch errors involving the observation and observation rate not aligning
     # for idx, (obs, obs_rate) in enumerate(zip(obs_arr, obs_rates_arr)):
