@@ -103,14 +103,10 @@ def emission_probabilities(observations, obs_rates, emissions, dispersions):
     
     for state in range(num_states):
         for t in range(num_obs):
-            # k = observations[t]
-            # mu = emissions[state] * obs_rates[t]
-            k = observations[t] * emissions[state]
-            mu = obs_rates[t]
+            k = observations[t]
+            mu = emissions[state] * obs_rates[t]
             r = dispersions[state]
-            
             # probabilities[t, state] = poisson_probability(observations[t], mu)
-            
             probabilities[t, state] = neg_binom_probability(k, mu, r)
     
     return probabilities
