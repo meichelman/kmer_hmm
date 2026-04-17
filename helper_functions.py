@@ -42,8 +42,8 @@ def load_obs_and_obs_rates(obs_file, obs_rates_file):
 
     num_windows = offset
     obs_arr = np.zeros(num_windows, dtype=np.int16)
-    # obs_rates_arr = np.zeros(num_windows, dtype=float)
-    obs_rates_arr = np.zeros(num_windows, dtype=np.int16)
+    obs_rates_arr = np.zeros(num_windows, dtype=float)
+    # obs_rates_arr = np.zeros(num_windows, dtype=np.int16)
 
     # Load obs counts into array, using contig_offsets to determine global index
     global_idx = 0

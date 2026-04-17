@@ -162,7 +162,7 @@ def get_log_likelihood(hmm_parameters, observations, obs_rates):
     _, scales = forward(emissions_probs, hmm_parameters.transitions, hmm_parameters.starting_probabilities)
     # print(scales[:20])
     # print(np.where(scales == 0))  output [2193]
-    print(observations[2193], obs_rates[2193], emissions_probs[2193,:], scales[2193]) # output 0 0 [1. 1.] 0.0
+    # print(observations[2193], obs_rates[2193], emissions_probs[2193,:], scales[2193]) # output 0 0 [1. 1.] 0.0
     return np.sum(np.log(scales))
 
 
@@ -302,8 +302,8 @@ def train_model(observations, obs_rates, hmm_parameters, epsilon = 1e-3, maxiter
     logoutput(hmm_parameters, previous_loglikelihood, 0)
     
     # Train parameters using Baum-Welch algorithm
-    # for iter in range(1, maxiterations):
-    for iter in range(1, 2):
+    for iter in range(1, maxiterations):
+    # for iter in range(1, 2):
         hmm_parameters = train_baum_welsch(hmm_parameters, observations, obs_rates) # Maximization
         new_loglikelihood = get_log_likelihood(hmm_parameters, observations, obs_rates) # Expectation
         

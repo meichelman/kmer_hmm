@@ -10,7 +10,7 @@ def train(obs_file, obs_rates_file, param_file, out_file):
     print('Loading data...')
     hmm_parameters = read_HMM_parameters_from_file(param_file)
     obs, obs_rates, _, _, _ = load_obs_and_obs_rates(obs_file, obs_rates_file)
-    print(np.where(obs_rates == 0))
+    # print(np.where(obs_rates == 0))
 
     print('-' * 40)
     print(f'> Number of windows: {len(obs)}')
